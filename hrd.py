@@ -1,14 +1,8 @@
 """CSC384-Assignment 1"""
-from dataclasses import dataclass, field
-from typing import Any
-
-"Structure that stores a state of the puzzle"
-
 import sys
 from heapq import heappush, heappop
-from ast import main
-from asyncio.windows_events import NULL
-from heapq import heappush
+from dataclasses import dataclass, field
+from typing import Any
 
 
 class State:
@@ -17,8 +11,8 @@ class State:
 
     Attributes:
     map: A dictionary stores the position of each space (treat it as coordinates) as key and
-    the cooresponding value of each key is a tuple.
-    In the tuple, we store the type of piece (3 repesents vertical, 2 represents horizontal,
+    the corresponding value of each key is a tuple.
+    In the tuple, we store the type of piece (3 represents vertical, 2 represents horizontal,
     4 represents singular, 1 represents 2by2, or 0 represents empty) as int, and
     store the other spaces that piece covered store as a list of tuple.
     NOTE: Domain of coordinates: {(x, y)| 0 <= x <= 3, 0 <= y <= 4}.
@@ -203,7 +197,7 @@ class State:
                 self.map[(x, y)] = self.map[(x, y + 1)]
                 self.map[(x - 1, y)] = self.map[(x - 1, y + 1)]
 
-                # update the corrdinates of neighbours
+                # update the coordinates of neighbours
                 for p in [(x - 1, y - 1), (x, y - 1), (x - 1, y), (x, y)]:
                     new_neighbour = []
                     for t in self.map[p][1]:
@@ -221,7 +215,7 @@ class State:
                 self.map[(x, y)] = self.map[(x, y + 1)]
                 self.map[(x + 1, y)] = self.map[(x + 1, y + 1)]
 
-                # update the corrdinates of neighbours
+                # update the coordinates of neighbours
                 for p in [(x, y - 1), (x + 1, y - 1), (x, y), (x + 1, y)]:
                     new_neighbour = []
                     for t in self.map[p][1]:
@@ -555,12 +549,12 @@ def is_goal(state: State) -> bool:
 def cost(state: State, explored: dict) -> int:
     """Return how many step we moved to reach the state."""
     parent = explored[state.__str__()]  # Previous state
-    cost = 0
+    c = 0
     while parent is not None:
-        cost += 1
+        c += 1
         parent = explored[parent]
 
-    return cost
+    return c
 
 
 def h_value(state: State) -> int:
@@ -584,7 +578,7 @@ def h_value_advanced(state: State) -> int:
     # Find the coordinate of the top-left corner of the 2x2 piece
     coor = find_2x2(state)
     path = (1 - coor[0], 3 - coor[1])  # Store how many step and what is the direction for
-                                       # horizontal and vertical move, respectively
+    # horizontal and vertical move, respectively
     result = abs(path[0]) + abs(path[1])
     y_domain = [y for y in range(5) if coor[1] <= y <= coor[1] + path[1] + 1]
 
@@ -614,7 +608,7 @@ def heuristic_search(init_s: State, heuristic_func) -> list[str]:
     """ Return a optimal solution (list of str)"""
     frontier = []
     explored = dict()  # Use dictionary to record the path
-                       # (Ex. from s1 to s2, then s2 is the key and s1 is the corresponding value)
+    # (Ex. from s1 to s2, then s2 is the key and s1 is the corresponding value)
     heappush(frontier, Item(0, init_s))
     explored[init_s.__str__()] = None
     total_cost = None
