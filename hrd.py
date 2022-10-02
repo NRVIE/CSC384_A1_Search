@@ -4,6 +4,7 @@ from typing import Any
 
 "Structure that stores a state of the puzzle"
 
+import sys
 from heapq import heappush, heappop
 from ast import main
 from asyncio.windows_events import NULL
@@ -41,14 +42,11 @@ class State:
 
     def __init__(self) -> None:
 
-        self.map = {(0, 0): (3, [(0, 1)]), (1, 0): (1, [(1, 1), (2, 0), (2, 1)]),
-                    (2, 0): (1, [(1, 0), (1, 1), (2, 1)]), (3, 0): (3, [(3, 1)]),
-                    (0, 1): (3, [(0, 0)]), (1, 1): (1, [(1, 0), (2, 0), (2, 1)]),
-                    (2, 1): (1, [(1, 0), (1, 1), (2, 0)]), (3, 1): (3, [(3, 0)]),
-                    (0, 2): (3, [(0, 3)]), (1, 2): (2, [(2, 2)]), (2, 2): (2, [(1, 2)]),
-                    (3, 2): (3, [(3, 3)]),
-                    (0, 3): (3, [(0, 2)]), (1, 3): (4, []), (2, 3): (4, []), (3, 3): (3, [(3, 2)]),
-                    (0, 4): (4, []), (1, 4): (0, []), (2, 4): (0, []), (3, 4): (4, [])}
+        self.map = {(0, 0): None, (1, 0): None, (2, 0): None, (3, 0): None,
+                    (0, 1): None, (1, 1): None, (2, 1): None, (3, 1): None,
+                    (0, 2): None, (1, 2): None, (2, 2): None, (3, 2): None,
+                    (0, 3): None, (1, 3): None, (2, 3): None, (3, 3): None,
+                    (0, 4): None, (1, 4): None, (2, 4): None, (3, 4): None}
 
     def __str__(self) -> str:
         """
@@ -64,7 +62,7 @@ class State:
         result = ""
         for y in range(5):
             for x in range(4):
-                result += f"{self.map[(x, y)][0]} "
+                result += f"{self.map[(x, y)][0]}"
             result += "\n"
         return result
 
@@ -465,9 +463,46 @@ class Item:
     item: Any = field(compare=False)
 
 
-def txt_to_state() -> State:
+def txt_to_state(file: str) -> State:
     """Return a State that convert input form to output form"""
-    ...
+    f = open(file, 'r')
+    x = 0
+    y = 0
+    pair_dict = {1: [], 2: [], 3: [], 4: [], 5: [], 6: []}
+    state = State()
+    for line in f.readlines():
+        line = line.strip('\n')
+        for i in range(4):
+            i = int(line[i])
+            if i == 0:
+                state.map[(x, y)] = (0, [])
+            elif i == 7:
+                state.map[(x, y)] = (4, [])
+            else:
+                pair_dict[i].append((x, y))
+
+            if x == 3:
+                x = 0
+            else:
+                x += 1
+        y += 1
+
+    for i in range(6):
+        if i + 1 == 1:
+            for coor in pair_dict[i + 1]:
+                state.map[coor] = (1, [tup for tup in pair_dict[i + 1] if tup != coor])
+        elif 2 <= (i + 1) <= 6:
+            # Check whether 1x2 or 2x1 piece
+            if pair_dict[i + 1][0][0] == pair_dict[i + 1][1][0]:
+                # vertical
+                for coor in pair_dict[i + 1]:
+                    state.map[coor] = (3, [tup for tup in pair_dict[i + 1] if tup != coor])
+            else:
+                # horizontal
+                for coor in pair_dict[i + 1]:
+                    state.map[coor] = (2, [tup for tup in pair_dict[i + 1] if tup != coor])
+    f.close()
+    return state
 
 
 def expand(state: State) -> list[State]:
@@ -548,12 +583,9 @@ def h_value_advanced(state: State) -> int:
     """
     # Find the coordinate of the top-left corner of the 2x2 piece
     coor = find_2x2(state)
-    coors = [coor, (coor[0] + 1, coor[1]),
-             (coor[0], coor[1] + 1), (coor[0] + 1, coor[1] + 1)]
     path = (1 - coor[0], 3 - coor[1])  # Store how many step and what is the direction for
                                        # horizontal and vertical move, respectively
     result = abs(path[0]) + abs(path[1])
-    x_domain = []
     y_domain = [y for y in range(5) if coor[1] <= y <= coor[1] + path[1] + 1]
 
     if path[0] < 0:
@@ -578,10 +610,11 @@ def find_2x2(state: State) -> tuple:
                 return (x, y)
 
 
-def as_search(init_s: State) -> list[str]:
+def heuristic_search(init_s: State, heuristic_func) -> list[str]:
     """ Return a optimal solution (list of str)"""
     frontier = []
-    explored = dict()
+    explored = dict()  # Use dictionary to record the path
+                       # (Ex. from s1 to s2, then s2 is the key and s1 is the corresponding value)
     heappush(frontier, Item(0, init_s))
     explored[init_s.__str__()] = None
     total_cost = None
@@ -603,23 +636,82 @@ def as_search(init_s: State) -> list[str]:
             cost_so_far = cost(curr.item, explored) + 1
             if successor.__str__() not in explored:
                 explored[successor.__str__()] = curr.item.__str__()
-                priority = cost_so_far + h_value(successor)
+                priority = cost_so_far + heuristic_func(successor)
                 heappush(frontier, Item(priority, successor))
 
     # Interpret the solution from explored
     while sol_key is not None:
         solution.append(sol_key)
         sol_key = explored[sol_key]
-    solution.append(f'Cost of the solution: {total_cost}')
+    solution.append(f'Cost of the solution: {total_cost}\n')
     solution.reverse()
 
-    # print out the solution
-    print(f'{solution[0]}')
-    for step in solution[1:]:
-        print(step)
+    return solution
+
+
+def as_search(state: State):
+    """A* search with Manhattan heuristic"""
+    return heuristic_search(state, h_value)
+
+
+def as_search_advanced(state: State):
+    """A* search with advance heuristic"""
+    return heuristic_search(state, h_value_advanced)
+
+
+def dfs(init_s: State) -> list[str]:
+    """ Return a solution (list of str) by a given initial state"""
+    frontier = []
+    explored = dict()
+    frontier.append(init_s)
+    explored[init_s.__str__()] = None
+    total_cost = None
+    solution = []
+    sol_key = None
+
+    # Start searching
+    while bool(frontier):
+        curr = frontier.pop()
+        # Check whether curr is a goal state
+        if is_goal(curr):
+            total_cost = cost(curr, explored)
+            sol_key = curr.__str__()
+            break
+        # Expanding states with pruning
+        for successor in expand(curr):
+            if successor.__str__() not in explored:
+                explored[successor.__str__()] = curr.__str__()
+                frontier.append(successor)
+
+    # Interpret the solution from explored
+    while sol_key is not None:
+        solution.append(sol_key)
+        sol_key = explored[sol_key]
+    solution.append(f'Cost of the solution: {total_cost}\n')
+    solution.reverse()
+
     return solution
 
 
 if __name__ == "__main__":
-    s = State()
-    print(s)
+    if len(sys.argv) != 4:
+        sys.exit("Error: Please provide exactly four arguments")
+    else:
+        s = txt_to_state(sys.argv[1])
+        astar_sol = as_search_advanced(s)  # A* with Manhattan heuristic is called as_search()
+        dfs_sol = dfs(s)
+
+        # Write the solution to target file
+        dfs_file = open(sys.argv[2], 'w')
+        astar_file = open(sys.argv[3], 'w')
+        # Write solution to dfs_file
+        dfs_file.write(dfs_sol[0])
+        for step in dfs_sol[1:]:
+            dfs_file.write(f'{step}\n')
+        # Write solution to astar_file
+        astar_file.write(astar_sol[0])
+        for step in astar_sol[1:]:
+            astar_file.write(f'{step}\n')
+        # Close files
+        dfs_file.close()
+        astar_file.close()
